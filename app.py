@@ -35,7 +35,34 @@ st.markdown(
 /* ── グローバル ── */
 html, body, [class*="css"], .stApp {
     background-color: #F4EDE0 !important;
+    color: #1A1208 !important;
     font-family: 'Noto Serif JP', 'Yu Mincho', 'Hiragino Mincho Pro', serif;
+}
+
+/* ── ウィジェット文字色 ── */
+.stSelectbox label, .stTextArea label, .stFileUploader label,
+.stTextInput label, .stCaption, p, span, div {
+    color: #1A1208 !important;
+}
+.stSelectbox > div > div,
+.stTextArea textarea,
+.stTextInput input {
+    color: #1A1208 !important;
+    background-color: #FDF6EC !important;
+    border-color: #C8A97E !important;
+}
+/* セレクトボックスのドロップダウン */
+[data-baseweb="select"] span,
+[data-baseweb="select"] div {
+    color: #1A1208 !important;
+}
+/* expander */
+.streamlit-expanderHeader {
+    color: #1A1208 !important;
+}
+/* caption */
+.stCaption p {
+    color: #4A2800 !important;
 }
 
 /* ── サイドバー：墨色 ── */
@@ -68,7 +95,7 @@ section[data-testid="stSidebar"] hr {
 }
 .goshuin-subtitle {
     font-size: 0.88rem;
-    color: #7A5C3A;
+    color: #4A2800;
     letter-spacing: 0.35rem;
     margin-top: 0.5rem;
 }
@@ -161,7 +188,7 @@ section[data-testid="stSidebar"] hr {
 /* ── フッター ── */
 .goshuin-footer {
     text-align: center;
-    color: #7A5C3A;
+    color: #4A2800;
     letter-spacing: 0.25rem;
     font-size: 0.73rem;
     padding: 1.5rem 0;
