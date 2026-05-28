@@ -2,7 +2,7 @@
 御朱印奇譚 ─ AI コンシェルジュ × 巡礼ストーリー生成アプリ
 
 依存ライブラリのインストール:
-    pip install streamlit anthropic Pillow
+    pip install streamlit anthropic Pillow streamlit-folium folium geopy
 
 起動方法:
     streamlit run app.py
@@ -56,7 +56,7 @@ section[data-testid="stSidebar"] hr {
 /* ── ヒーローヘッダー ── */
 .goshuin-hero {
     text-align: center;
-    padding: 2.5rem 1rem 1.5rem;
+    padding: 1.5rem 1rem 1rem;
     border-bottom: 1px solid #B8860B44;
     margin-bottom: 2rem;
 }
@@ -87,7 +87,7 @@ section[data-testid="stSidebar"] hr {
     font-weight: 700;
     border-left: 3px solid #8B1A1A;
     padding-left: 0.6rem;
-    margin: 1.2rem 0 0.6rem;
+    margin: 0.8rem 0 0.4rem;
 }
 
 /* ── ストーリー表示カード ── */
@@ -96,8 +96,8 @@ section[data-testid="stSidebar"] hr {
     border: 1px solid #C8A97E;
     border-top: 3px solid #8B1A1A;
     border-radius: 2px;
-    padding: 2rem 2.2rem;
-    line-height: 2.3;
+    padding: 1.2rem 1.5rem;
+    line-height: 1.8;
     font-size: 1.0rem;
     color: #1A1208;
     box-shadow: 0 4px 20px rgba(26,18,8,0.09);
@@ -178,15 +178,20 @@ section[data-testid="stSidebar"] hr {
 # ─────────────────────────────────────────────────────────────────────────────
 MODEL_ID = "claude-sonnet-4-6"
 
-SYSTEM_PROMPT = (
-    "あなたは日本の伝統文化・寺社仏閣に極めて造詣が深いAIコンシェルジュです。"
-    "ユーザーから送られた写真の建築物や風景から【寺社名・天気・時間帯】を解析してください。"
-    "判別が難しい場合は風景から推測される美しい和の表現（例：深緑に包まれた古刹）で補完してください。"
-    "その後、解析結果とユーザーの【気分】【フリーテキスト】を融合させ、"
-    "まるで短編小説や絵巻物のト書きのような、厳かで叙情的な『巡礼ストーリー（200〜300文字程度）』を"
-    "美しい日本語で生成してください。"
-    "最後に、その情景を表す画像生成AI用の英語プロンプト（Image Prompt）も添えてください。"
-)
+SYSTEM_PROMPT = """あなたは日本の伝統文化・寺社仏閣に極めて造詣が深いAIコンシェルジュです。
+ユーザーから送られた写真を詳細に解析し、以下の形式で必ず出力してください。
+
+【解析結果】
+寺社名：（できる限り正確な名称。建物・扁額・石碑・特徴的な建築様式・雰囲気から推定。不明な場合は「不明」）
+所在地：（都道府県・市区町村レベルまで。例：京都府京都市東山区）
+天気：（晴れ/曇り/雨/雪 など）
+時間帯：（朝/昼/夕/夜）
+
+【巡礼ストーリー】
+（上記解析結果とユーザーの気分・フリーテキストを融合させた、200〜300文字の叙情的な短編ストーリー）
+
+**Image Prompt**
+（この情景を表す画像生成AI用の英語プロンプト）"""
 
 MOOD_OPTIONS = [
     "🌿 心を落ち着かせたい（静寂・平和）",
@@ -293,6 +298,44 @@ def split_story_and_prompt(text: str) -> tuple[str, str]:
     return text, ""
 
 
+def parse_location(text: str) -> tuple[str, str]:
+    """Extract shrine name and location from Claude output."""
+    shrine = ""
+    location = ""
+    for line in text.splitlines():
+        if line.startswith("寺社名：") or line.startswith("寺社名:"):
+            shrine = line.split("：", 1)[-1].split(":", 1)[-1].strip()
+        elif line.startswith("所在地：") or line.startswith("所在地:"):
+            location = line.split("：", 1)[-1].split(":", 1)[-1].strip()
+    return shrine, location
+
+
+def show_map(shrine: str, location: str):
+    from geopy.geocoders import Nominatim
+    import folium
+    from streamlit_folium import st_folium
+
+    query = f"{shrine} {location}".strip()
+    if not query or query == "不明":
+        return
+
+    geolocator = Nominatim(user_agent="gosyuin_app")
+    try:
+        geo = geolocator.geocode(query + " 日本", language="ja", timeout=5)
+        if geo is None:
+            geo = geolocator.geocode(location + " 日本", language="ja", timeout=5)
+        if geo:
+            m = folium.Map(location=[geo.latitude, geo.longitude], zoom_start=15)
+            folium.Marker(
+                [geo.latitude, geo.longitude],
+                popup=shrine or location,
+                icon=folium.Icon(color="red", icon="info-sign"),
+            ).add_to(m)
+            st_folium(m, width=None, height=300)
+    except Exception:
+        pass
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # SIDEBAR
 # ─────────────────────────────────────────────────────────────────────────────
@@ -322,6 +365,15 @@ with st.sidebar:
     st.markdown("---")
     st.caption(f"Model: `{MODEL_ID}`")
     st.caption("Powered by Anthropic Claude")
+
+    if st.session_state.get("history"):
+        st.markdown("---")
+        st.markdown("**📜 履歴**")
+        for i, h in enumerate(st.session_state.history):
+            label = h["shrine"] or "（不明）"
+            with st.expander(f"{i+1}. {label}"):
+                st.caption(h["mood"])
+                st.write(h["story"])
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HERO HEADER
@@ -412,6 +464,25 @@ with right_col:
                             </div>""",
                             unsafe_allow_html=True,
                         )
+
+                    # ── 地図表示 ──
+                    shrine_name, shrine_loc = parse_location(raw_text)
+                    if shrine_name or shrine_loc:
+                        st.markdown('<div class="section-label">場所</div>', unsafe_allow_html=True)
+                        st.caption(f"⛩ {shrine_name}　📍 {shrine_loc}")
+                        show_map(shrine_name, shrine_loc)
+
+                    # ── 履歴保存 ──
+                    if "history" not in st.session_state:
+                        st.session_state.history = []
+                    st.session_state.history.insert(0, {
+                        "shrine": shrine_name,
+                        "location": shrine_loc,
+                        "story": story,
+                        "mood": mood,
+                    })
+                    if len(st.session_state.history) > 10:
+                        st.session_state.history = st.session_state.history[:10]
 
                     # ── 全文表示（折りたたみ） ──
                     with st.expander("📜 生成テキスト全文を表示"):
