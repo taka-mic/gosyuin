@@ -9,9 +9,11 @@
 """
 
 import base64
+import io
 
 import anthropic
 import streamlit as st
+from PIL import Image
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PAGE CONFIGURATION
@@ -209,11 +211,26 @@ MIME_MAP = {
 # ─────────────────────────────────────────────────────────────────────────────
 
 def encode_image(file) -> tuple[str, str]:
-    """Return (base64_data, media_type) from a Streamlit UploadedFile."""
-    ext = file.name.rsplit(".", 1)[-1].lower()
-    media_type = MIME_MAP.get(ext, "image/jpeg")
-    data = base64.standard_b64encode(file.read()).decode("utf-8")
-    return data, media_type
+    """Return (base64_data, media_type) from a Streamlit UploadedFile.
+    Resizes/compresses the image to stay within Claude's 5 MB limit."""
+    MAX_BYTES = 4 * 1024 * 1024  # 4 MB で余裕を持たせる
+
+    img = Image.open(file)
+    # RGBA → RGB 変換（JPEG 保存のため）
+    if img.mode in ("RGBA", "P"):
+        img = img.convert("RGB")
+
+    quality = 85
+    while True:
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=quality)
+        if buf.tell() <= MAX_BYTES or quality <= 30:
+            break
+        quality -= 10
+
+    buf.seek(0)
+    data = base64.standard_b64encode(buf.read()).decode("utf-8")
+    return data, "image/jpeg"
 
 
 def call_claude(
