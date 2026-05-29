@@ -1,26 +1,16 @@
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-*.egg
-*.egg-info/
-dist/
-build/
-.eggs/
+# Node.js
+node_modules/
+npm-debug.log*
+package-lock.json
 
-# 仮想環境
-.venv/
-venv/
-env/
+# Next.js
+.next/
+out/
 
-# 環境変数（APIキーを含むため必ず除外）
+# 環境変数
 .env
 .env.local
 .env.*.local
-
-# Streamlit
-.streamlit/secrets.toml
 
 # OS
 .DS_Store
@@ -30,3 +20,9 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# Python（旧ファイル）
+__pycache__/
+*.py[cod]
+.venv/
+venv/
